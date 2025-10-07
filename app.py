@@ -1,7 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, abort, session
 from functools import wraps
 from werkzeug.utils import secure_filename
+from flask_migrate import Migrate
 import os
+
+from models import db, Product
 
 app = Flask(__name__)
 app.secret_key = "SayGex"  # Для сесій
@@ -9,6 +12,9 @@ app.secret_key = "SayGex"  # Для сесій
 UPLOAD_FOLDER = "static/img"  # де будуть зберігатися завантажені файли
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///products_database.db"
+db.init_app(app)
+migrate = Migrate(app, db)
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -17,13 +23,6 @@ def allowed_file(filename):
 admins = [
     {"username": "admin", "password": "12345", "name": "Головний Адмін", "email": "admin@example.com"},
     {"username": "root", "password": "qwerty", "name": "Супер Адмін", "email": "root@example.com"}
-]
-
-# Список продуктів
-products = [
-    {"id": 1, "name": "Atlas", "desc": "Гуманоїдний робот для мобільності та досліджень.", "img": "hero.png"},
-    {"id": 2, "name": "Spot", "desc": "Робот-собака для промислових і оборонних задач.", "img": "hero.png"},
-    {"id": 3, "name": "Handle", "desc": "Робот для складів та логістики.", "img": "hero.png"}
 ]
 
 # Карусель
@@ -74,11 +73,13 @@ def index():
 
 @app.route("/products")
 def products_page():
+    products = Product.query.all()
     return render_template("products.html", products=products)
 
 @app.route("/products/<int:product_id>")
 def product_detail(product_id):
-    product = next((p for p in products if p["id"] == product_id), None)
+    products = Product.query.all()
+    product = next((p for p in products if p.id == product_id), None)
     if not product:
         abort(404)
     return render_template("product_detail.html", product=product)
@@ -246,4 +247,7 @@ def logout():
 
 # -------------------- Run -------------------- #
 if __name__ == "__main__":
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+        db.session.commit()
+    app.run(debug=True, port=8001)

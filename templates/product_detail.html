@@ -3,7 +3,7 @@
 
 <div class="container my-5 text-center">
     <!-- Картинка на всю ширину колонки, по центру -->
-    <img src="{{ url_for('static', filename='img/' + product.img) }}" 
+    <img src="{{ url_for('static', filename='img/' + (product.img or 'placeholder.jpg')) }}" 
          class="img-fluid rounded shadow mb-4" 
          alt="{{ product.name }}" 
          style="max-width: 100%; height: auto;">
@@ -12,7 +12,7 @@
     <h2 class="mb-3">{{ product.name }}</h2>
 
     <!-- Опис продукту вирівняний по лівому краю -->
-    <p class="lead text-start mb-4">{{ product.desc }}</p>
+    <p class="lead text-start mb-4">{{ product.description }}</p>
 
     <!-- Кнопка назад -->
     <a href="{{ url_for('products_page') }}" class="btn btn-secondary">← Назад до продукції</a>
