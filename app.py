@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, abort, session
+from flask import Flask, render_template, request, redirect, url_for, abort, session, flash
 from functools import wraps
 from werkzeug.utils import secure_filename
 from flask_migrate import Migrate
 import os
+import uuid
 
 from models import db, Product
+from forms import ProductForm
 
 app = Flask(__name__)
 app.secret_key = "SayGex"  # Для сесій
@@ -13,6 +15,7 @@ UPLOAD_FOLDER = "static/img"  # де будуть зберігатися зав�
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///products_database.db"
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -104,7 +107,8 @@ def admin():
 def admin_dashboard():
     admin_name = session.get("admin_name", "Admin")
     q = request.args.get("q", "").lower()
-    filtered_products = [p for p in products if q in p["name"].lower()] if q else products
+    products = Product.query.all()
+    filtered_products = [p for p in products if q in p.name.lower()] if q else products
     return render_template("admin_dashboard.html", products=filtered_products, admin_name=admin_name)
 
 @app.route("/admin/admins")
@@ -117,49 +121,68 @@ def admin_list():
 @app.route("/admin/add_product", methods=["GET", "POST"])
 @login_required
 def add_product():
-    if request.method == "POST":
-        name = request.form.get("name")
-        desc = request.form.get("desc")
-        file = request.files.get("img_file")
+    form = ProductForm()
+    if form.validate_on_submit():
+        product = Product(name = form.name.data,
+                          description = form.description.data,
+                          img = form.img.data)
+        if form.img.data:
+            filename = f"{uuid.uuid4().hex}_{secure_filename(form.img.data.filename)}"
+            upload_path = os.path.join(UPLOAD_FOLDER, filename)
+            form.img.data.save(upload_path)
+            product.img = filename
+        db.session.add(product)
+        db.session.commit()
+        return redirect(url_for("admin_dashboard"))
 
-        if name and desc and file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-
-            new_id = max([p["id"] for p in products]) + 1 if products else 1
-            products.append({"id": new_id, "name": name, "desc": desc, "img": filename})
-
-            return redirect(url_for("admin_dashboard"))
-
-    return render_template("add_product.html")
+    return render_template("add_product.html", form = form)
 
 @app.route("/admin/edit/<int:product_id>", methods=["GET", "POST"])
 @login_required
 def edit_product(product_id):
-    product = next((p for p in products if p["id"] == product_id), None)
+    products = Product.query.all()
+    form = ProductForm()
+    product = next((p for p in products if p.id == product_id), None)
     if not product:
         abort(404)
 
     if request.method == "POST":
-        product["name"] = request.form.get("name")
-        product["desc"] = request.form.get("desc")
+        product = Product(name = form.name.data,
+                          description = form.description.data,
+                          img = form.img.data)
+        
+        current_product = Product.query.get(product_id)
+        if current_product:
+            current_product.name = form.name.data
+            current_product.description = form.description.data
+            if form.img.data:
+                if current_product.img:
+                    img_path = os.path.join(UPLOAD_FOLDER, current_product.img)
+                    if os.path.exists(img_path):
+                        os.remove(img_path)
+                filename = secure_filename(form.img.data.filename)
+                upload_path = os.path.join(UPLOAD_FOLDER, filename)
+                form.img.data.save(upload_path)
+                current_product.img = filename
 
-        # Завантаження файлу
-        file = request.files.get("img_file")
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-            product["img"] = filename  # зберігаємо ім'я файлу в продукті
-
+        db.session.commit()
         return redirect(url_for("admin_dashboard"))
 
-    return render_template("edit_product.html", product=product)
+    return render_template("edit_product.html", product=product, form=form)
 
 @app.route("/admin/delete/<int:product_id>", methods=["POST"])
 @login_required
 def delete_product(product_id):
-    global products
-    products = [p for p in products if p["id"] != product_id]
+    product = Product.query.get(product_id)
+    if product:
+        if product.img:
+            img_path = os.path.join(UPLOAD_FOLDER, product.img)
+            if os.path.exists(img_path):
+                os.remove(img_path)
+        db.session.delete(product)
+        db.session.commit()
+        return redirect(url_for("admin_dashboard"))
+    flash('Product not found', 'error')
     return redirect(url_for("admin_dashboard"))
 
 

@@ -1,23 +1,33 @@
+{% macro render_field(field, value = None, is_image = False) %}
+  <div class="mb-3">
+    {{ field.label(class="form-label") }}
+    {% if is_image and value %}
+      <div class="mb-2">
+        <img src="{{ url_for('static', filename='img/' ~ value) }}" 
+             alt="Current image" 
+             class="img-thumbnail" 
+             style="max-width: 200px;">
+      </div>
+    {% endif %}
+
+    {{ field(class="form-control", value=value  , **kwargs)|safe }}
+
+    {% if field.errors %}
+      <div class="text-danger mt-1">
+        {% for error in field.errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
 {% extends "base.html" %}
 {% block content %}
 <form method="POST" enctype="multipart/form-data">
-    <div class="mb-3">
-        <label class="form-label">Назва продукту</label>
-        <input type="text" name="name" value="{{ product.name }}" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Опис</label>
-        <textarea name="desc" class="form-control" rows="4" required>{{ product.desc }}</textarea>
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Зображення продукту</label>
-        <input type="file" name="img_file" class="form-control">
-        {% if product.img %}
-        <small>Поточне: {{ product.img }}</small>
-        <br>
-        <img src="{{ url_for('static', filename='img/' + product.img) }}" alt="{{ product.name }}" style="max-width: 200px; margin-top: 5px;">
-        {% endif %}
-    </div>
+    {{ render_field(form.name, product.name) }}
+    {{ render_field(form.description, product.description) }}
+    {{ render_field(form.img, product.img, is_image=true) }}
     <button type="submit" class="btn btn-success">Зберегти</button>
     <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Назад</a>
 </form>

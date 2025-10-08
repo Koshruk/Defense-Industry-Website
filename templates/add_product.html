@@ -1,8 +1,30 @@
+{% macro render_field(field) %}
+  <div class="mb-3">
+    {{ field.label(class="form-label") }}
+    {{ field(class="form-control", **kwargs)|safe }}
+    {% if field.errors %}
+      <div class="text-danger mt-1">
+        {% for error in field.errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
 {% extends "base.html" %}
 {% block content %}
+
 <div class="container mt-4">
   <h2>Додати новий продукт</h2>
-  <form method="POST" enctype="multipart/form-data">
+  <form method="post" enctype="multipart/form-data">
+    {{ form.csrf_token }}
+    {{ render_field(form.name) }}
+    {{ render_field(form.description) }}
+    {{ render_field(form.img) }}
+    <button type="submit" class="btn btn-success">Додати</button>
+  </form>
+  <!--<form method="POST" enctype="multipart/form-data">
     <div class="mb-3">
       <label class="form-label">Назва продукту</label>
       <input type="text" name="name" class="form-control" required>
@@ -17,6 +39,6 @@
     </div>
     <button type="submit" class="btn btn-success">Додати</button>
     <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Назад</a>
-  </form>
+  </form>-->
 </div>
 {% endblock %}
