@@ -101,7 +101,6 @@ def admin():
 @app.route("/admin/dashboard")
 @login_required
 def admin_dashboard():
-    admin_name = session.get("admin_name", "Admin")
     q = request.args.get("q", "").lower()
     products = Product.query.all()
     filtered_products = [p for p in products if q in p.name.lower()] if q else products
@@ -110,8 +109,10 @@ def admin_dashboard():
 @app.route("/admin/admins")
 @login_required
 def admin_list():
+    q = request.args.get("q", "").lower()
     admins = Admin.query.all()
-    return render_template("admin_dashboard_admins.html", admins=admins)
+    filtered_admins = [p for p in admins if q in p.name.lower()] if q else admins
+    return render_template("admin_dashboard_admins.html", admins=filtered_admins)
 
 @app.route("/admin/add_product", methods=["GET", "POST"])
 @login_required
@@ -185,7 +186,7 @@ def delete_product(product_id):
 @app.route("/admin/carousel", methods=["GET", "POST"])
 @login_required
 def admin_carousel():
-    return render_template("admin_carousel.html", admin_name=session.get("admin_name"), carousel_items=carousel_items)
+    return render_template("admin_carousel.html", carousel_items=carousel_items)
 
 @app.route("/admin/add_carousel_item", methods=["GET", "POST"])
 @login_required
