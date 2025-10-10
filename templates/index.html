@@ -18,7 +18,7 @@
   <div class="carousel-inner">
     {% for item in carousel_items %}
     <div class="carousel-item {% if loop.first %}active{% endif %}">
-      <img src="{{ url_for('static', filename='img/' + item.img) }}"
+      <img src="{{ url_for('static', filename='img/' + (item.img or 'placeholder.jpg')) }}"
            class="d-block w-100 carousel-img"
            alt="{{ item.title or 'Слайд' }}">
       

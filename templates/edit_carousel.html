@@ -1,54 +1,41 @@
+{% macro render_field(field, value = None, is_image = False) %}
+  <div class="mb-3">
+    {{ field.label(class="form-label") }}
+    {% if is_image and value %}
+      <div class="mb-2">
+        <img src="{{ url_for('static', filename='img/' ~ value) }}" 
+             alt="Current image" 
+             class="img-thumbnail" 
+             style="max-width: 200px;">
+      </div>
+    {% endif %}
+
+    {{ field(class="form-control", value=value  , **kwargs)|safe }}
+
+    {% if field.errors %}
+      <div class="text-danger mt-1">
+        {% for error in field.errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
 {% extends "base.html" %}
 {% block content %}
 <div class="container mt-4">
   <h2>Редагування слайда каруселі</h2>
   <form method="POST" enctype="multipart/form-data">
-    <!-- Поточне зображення -->
-    {% if item.img %}
-    <div class="mb-3">
-      <label class="form-label">Поточне зображення</label><br>
-      <img src="{{ url_for('static', filename='img/' + item.img) }}" alt="{{ item.title }}" style="max-width:200px; margin-bottom:10px;">
-    </div>
-    {% endif %}
-
-    <!-- Завантаження нового файлу -->
-    <div class="mb-3">
-      <label class="form-label">Завантажити нове зображення</label>
-      <input type="file" name="img_file" class="form-control">
-    </div>
-
-    <div class="mb-3">
-      <label class="form-label">Заголовок</label>
-      <input type="text" name="title" value="{{ item.title }}" class="form-control">
-    </div>
-
-    <div class="mb-3">
-      <label class="form-label">Опис</label>
-      <textarea name="desc" class="form-control" rows="3">{{ item.desc }}</textarea>
-    </div>
-
-    <div class="mb-3">
-      <label class="form-label">Позиція тексту</label>
-      <select name="text_position" class="form-select">
-        <option value="left" {% if item.text_position == "left" %}selected{% endif %}>Зліва</option>
-        <option value="right" {% if item.text_position == "right" %}selected{% endif %}>Справа</option>
-        <option value="center" {% if item.text_position == "center" %}selected{% endif %}>По центру</option>
-        <option value="none" {% if item.text_position == "none" %}selected{% endif %}>Без тексту</option>
-      </select>
-    </div>
-
-    <div class="mb-3">
-      <label class="form-label">Текст кнопки</label>
-      <input type="text" name="button_text" value="{{ item.button_text }}" class="form-control">
-    </div>
-
-    <div class="mb-3">
-      <label class="form-label">Посилання кнопки</label>
-      <input type="text" name="button_link" value="{{ item.button_link }}" class="form-control">
-    </div>
-
+    {{ form.csrf_token }}
+    {{ render_field(form.title, carousel_item.title) }}
+    {{ render_field(form.description, carousel_item.description) }}
+    {{ render_field(form.text_position, carousel_item.text_position) }}
+    {{ render_field(form.button_text, carousel_item.button_text) }}
+    {{ render_field(form.button_link, carousel_item.button_link) }}
+    {{ render_field(form.img, carousel_item.img, is_image=true) }}
     <button type="submit" class="btn btn-success">Зберегти</button>
-    <a href="{{ url_for('admin_carousel') }}" class="btn btn-secondary">Назад</a>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Назад</a>
   </form>
 </div>
 {% endblock %}

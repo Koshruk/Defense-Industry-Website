@@ -1,37 +1,29 @@
+{% macro render_field(field) %}
+  <div class="mb-3">
+    {{ field.label(class="form-label") }}
+    {{ field(class="form-control", **kwargs)|safe }}
+    {% if field.errors %}
+      <div class="text-danger mt-1">
+        {% for error in field.errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
 {% extends "base.html" %}
 {% block content %}
 <div class="container mt-4">
   <h2>Додати новий слайд</h2>
   <form method="POST" enctype="multipart/form-data">
-    <div class="mb-3">
-      <label class="form-label">Зображення</label>
-      <input type="file" name="img_file" class="form-control" accept="image/*" required>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Заголовок</label>
-      <input type="text" name="title" class="form-control">
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Опис</label>
-      <textarea name="desc" class="form-control" rows="3"></textarea>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Позиція тексту</label>
-      <select name="text_position" class="form-select">
-        <option value="left">Зліва</option>
-        <option value="right">Справа</option>
-        <option value="center" selected>По центру</option>
-        <option value="none">Без тексту</option>
-      </select>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Текст кнопки</label>
-      <input type="text" name="button_text" class="form-control">
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Посилання кнопки</label>
-      <input type="text" name="button_link" class="form-control">
-    </div>
+    {{ form.csrf_token }}
+    {{ render_field(form.title) }}
+    {{ render_field(form.description) }}
+    {{ render_field(form.text_position) }}
+    {{ render_field(form.button_text) }}
+    {{ render_field(form.button_link) }}
+    {{ render_field(form.img) }}
     <button type="submit" class="btn btn-success">Додати слайд</button>
     <a href="{{ url_for('admin_carousel') }}" class="btn btn-secondary">Назад</a>
   </form>

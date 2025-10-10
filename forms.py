@@ -1,4 +1,4 @@
-from wtforms import Form, BooleanField, StringField, PasswordField, validators, FileField, DateField, ValidationError
+from wtforms import Form, BooleanField, StringField, PasswordField, validators, FileField, DateField, SelectField, ValidationError
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed, FileRequired
 from datetime import date
@@ -10,10 +10,26 @@ def DateValidation(form, field):
 images = ['jpg', 'png', 'jpeg']
 
 class ProductForm(FlaskForm):
-    name = StringField('Product name', [validators.Length(min=4, max=25), validators.DataRequired()])
-    description = StringField('Description', [validators.Length(min=4, max=100), validators.DataRequired()])
-    img = FileField('Product picture', validators=[FileRequired(), FileAllowed(images, 'Images only!')])
+    name = StringField('Назва', [validators.Length(min=4, max=25), validators.DataRequired()])
+    description = StringField('Опис', [validators.Length(min=4, max=100), validators.DataRequired()])
+    img = FileField('Картинка', validators=[FileRequired(), FileAllowed(images, 'Images only!')])
 
 class AdminForm(FlaskForm):
     email = StringField('Email', [validators.Length(min=4, max=80), validators.DataRequired()])
-    password = StringField('Password', [validators.Length(min=4, max=80), validators.DataRequired()])
+    password = PasswordField('Пароль', [validators.Length(min=4, max=80), validators.DataRequired()])
+
+class CarouselItemForm(FlaskForm):
+    title = StringField('Слайд', [validators.Length(min=4, max=25), validators.DataRequired()])
+    description = StringField('Опис', [validators.Length(min=4, max=50)])
+    text_position = SelectField(
+        "Розміщення тексту",
+        choices=[
+            ("left","Зліва"),
+            ("center","По центру"),
+            ("right","Справа")
+        ],
+        default="center"
+    )
+    button_text = StringField('Текст на кнопці', [validators.Length(min=4, max=30), validators.DataRequired()])
+    button_link = StringField('Посилання', [validators.Length(min=4, max=50), validators.DataRequired()])
+    img = FileField('Картинка', validators=[FileRequired(), FileAllowed(images, 'Тільки зображення!')])
