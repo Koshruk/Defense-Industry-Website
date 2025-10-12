@@ -7,7 +7,14 @@
 
     <!-- Основна панель -->
     <div class="col-md-9 col-lg-10 p-4">
-      <h3 class="mb-4">Список адміністраторів</h3>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-4">Список адміністраторів</h3>
+        {% if current_user.is_authenticated and current_user.role == "superadmin" %}
+          <a href="{{ url_for('add_admin') }}" class="btn btn-success">
+            Додати профіль адміністратора
+          </a>
+        {% endif %}
+      </div>
 
       <!-- Пошук -->
       <form method="GET" class="mb-3 d-flex">
@@ -30,6 +37,15 @@
             <td>{{ loop.index }}</td>
             <td>{{ a.name }}</td>
             <td>{{ a.email }}</td>
+            {% if current_user.is_authenticated and current_user.role == "superadmin" %}
+            <td>
+              <form action="{{ url_for('delete_admin', admin_id=a.id) }}" method="POST" class="ms-3">
+                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Ви впевнені, що хочете видалити адміністратора?');">
+                  Видалити
+                </button>
+              </form>
+            </td>
+            {% endif %}
           </tr>
           {% else %}
           <tr>

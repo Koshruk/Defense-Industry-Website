@@ -17,6 +17,7 @@ class ProductForm(FlaskForm):
 class AdminForm(FlaskForm):
     email = StringField('Email', [validators.Length(min=4, max=80), validators.DataRequired()])
     password = PasswordField('Пароль', [validators.Length(min=4, max=80), validators.DataRequired()])
+    name = StringField("Ім'я", [validators.Length(max=20)])
 
 class CarouselItemForm(FlaskForm):
     title = StringField('Слайд', [validators.Length(min=4, max=25), validators.DataRequired()])

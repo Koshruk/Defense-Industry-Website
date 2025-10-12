@@ -15,6 +15,10 @@ class Admin(db.Model, UserMixin):
     password = db.Column(db.String(80), nullable=False)
     name = db.Column(db.String(80), nullable=True)
     email = db.Column(db.String(80), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default="admin")
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'superadmin')", name="check_role"),
+    )
 
 class CarouselItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)

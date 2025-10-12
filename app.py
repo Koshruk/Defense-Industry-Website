@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, abort, session, flash
 from werkzeug.utils import secure_filename
+from functools import wraps
 from flask_migrate import Migrate
-from flask_login import login_user, LoginManager, login_required, logout_user
+from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from sqlalchemy import or_
+from flask_bcrypt import Bcrypt
 import os
 import uuid
 
@@ -20,6 +22,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///products_database.db"
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 
 db.init_app(app)
+bcrypt = Bcrypt(app)
 migrate = Migrate(app, db)
 
 login_manager = LoginManager()
@@ -30,6 +33,16 @@ def load_user(user_id):
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+
+def superadmin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != "superadmin":
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
 
 # -------------------- Routes -------------------- #
 
@@ -54,12 +67,12 @@ def product_detail(product_id):
 def admin():
     form = AdminForm()
     if form.validate_on_submit():
-        admin_user = Admin.query.filter_by(email = form.email.data, password = form.password.data).first()
-        if admin_user:
+        admin_user = Admin.query.filter_by(email = form.email.data).first()
+        if admin_user and bcrypt.check_password_hash(admin_user.password, form.password.data):
             login_user(admin_user)
             return redirect(url_for("admin_dashboard"))
         else:
-            flash('Wrong email or password')
+            print("fuck")
     return render_template("admin.html", form=form)
 
 @app.route("/admin/dashboard")
@@ -75,6 +88,31 @@ def admin_list():
     q = request.args.get("q", "").lower()
     filtered_admins = Admin.query.filter(or_(Admin.name.ilike(f"%{q}%"), Admin.email.ilike(f"%{q}%"))).all()
     return render_template("admin_dashboard_admins.html", admins=filtered_admins)
+
+@app.route("/admin/add_admin", methods=["GET", "POST"])
+@superadmin_required
+def add_admin():
+    form = AdminForm()
+    if form.validate_on_submit():
+        hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+        admin = Admin(name = form.name.data,
+                          email = form.email.data,
+                          password = hashed_password)
+        db.session.add(admin)
+        db.session.commit()
+        return redirect(url_for("admin_list"))
+    return render_template("add_admin.html", form=form)
+
+@app.route("/admin/delete/<int:admin_id>", methods=["POST"])
+@superadmin_required
+def delete_admin(admin_id):
+    admin = Admin.query.get_or_404(admin_id)
+    if admin.id == current_user.id:
+        flash("You cannot delete your own account", "danger")
+        return redirect(url_for("admin_list"))
+    db.session.delete(admin)
+    db.session.commit()
+    return redirect(url_for("admin_list"))
 
 @app.route("/admin/add_product", methods=["GET", "POST"])
 @login_required
