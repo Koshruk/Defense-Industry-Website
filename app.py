@@ -1,8 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, abort, session, flash
-from functools import wraps
 from werkzeug.utils import secure_filename
 from flask_migrate import Migrate
 from flask_login import login_user, LoginManager, login_required, logout_user
+from sqlalchemy import or_
 import os
 import uuid
 
@@ -12,7 +12,7 @@ from forms import ProductForm, AdminForm, CarouselItemForm
 app = Flask(__name__)
 app.secret_key = "SayGex"
 
-UPLOAD_FOLDER = "static/img"  # де будуть зберігатися завантажені файли
+UPLOAD_FOLDER = "static/img"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -21,6 +21,7 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 
 db.init_app(app)
 migrate = Migrate(app, db)
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 @login_manager.user_loader
@@ -29,12 +30,6 @@ def load_user(user_id):
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Список користувачів
-admins = [
-    {"username": "admin", "password": "12345", "name": "Головний Адмін", "email": "admin@example.com"},
-    {"username": "root", "password": "qwerty", "name": "Супер Адмін", "email": "root@example.com"}
-]
 
 # -------------------- Routes -------------------- #
 
@@ -50,8 +45,7 @@ def products_page():
 
 @app.route("/products/<int:product_id>")
 def product_detail(product_id):
-    products = Product.query.all()
-    product = next((p for p in products if p.id == product_id), None)
+    product = Product.query.get(product_id)
     if not product:
         abort(404)
     return render_template("product_detail.html", product=product)
@@ -59,11 +53,9 @@ def product_detail(product_id):
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     form = AdminForm()
-    admins = Admin.query.all()
     if form.validate_on_submit():
-        admin_user = next((a for a in admins if a.email == form.email.data and a.password == form.password.data), None)
+        admin_user = Admin.query.filter_by(email = form.email.data, password = form.password.data).first()
         if admin_user:
-            print("user")
             login_user(admin_user)
             return redirect(url_for("admin_dashboard"))
         else:
@@ -74,16 +66,14 @@ def admin():
 @login_required
 def admin_dashboard():
     q = request.args.get("q", "").lower()
-    products = Product.query.all()
-    filtered_products = [p for p in products if q in p.name.lower()] if q else products
+    filtered_products = Product.query.filter(or_(Product.name.ilike(f"%{q}%")), Product.description.ilike(f"%{q}%")).all()
     return render_template("admin_dashboard.html", products=filtered_products)
 
 @app.route("/admin/admins")
 @login_required
 def admin_list():
     q = request.args.get("q", "").lower()
-    admins = Admin.query.all()
-    filtered_admins = [p for p in admins if q in p.name.lower()] if q else admins
+    filtered_admins = Admin.query.filter(or_(Admin.name.ilike(f"%{q}%"), Admin.email.ilike(f"%{q}%"))).all()
     return render_template("admin_dashboard_admins.html", admins=filtered_admins)
 
 @app.route("/admin/add_product", methods=["GET", "POST"])
@@ -108,49 +98,37 @@ def add_product():
 @app.route("/admin/edit/<int:product_id>", methods=["GET", "POST"])
 @login_required
 def edit_product(product_id):
-    products = Product.query.all()
-    form = ProductForm()
-    product = next((p for p in products if p.id == product_id), None)
-    if not product:
-        abort(404)
+    current_product = Product.query.get_or_404(product_id)
+    form = ProductForm(obj=current_product)
 
-    if request.method == "POST":
-        product = Product(name = form.name.data,
-                          description = form.description.data,
-                          img = form.img.data)
-        
-        current_product = Product.query.get(product_id)
-        if current_product:
-            current_product.name = form.name.data
-            current_product.description = form.description.data
-            if form.img.data:
-                if current_product.img:
-                    img_path = os.path.join(UPLOAD_FOLDER, current_product.img)
-                    if os.path.exists(img_path):
-                        os.remove(img_path)
-                filename = secure_filename(form.img.data.filename)
-                upload_path = os.path.join(UPLOAD_FOLDER, filename)
-                form.img.data.save(upload_path)
-                current_product.img = filename
+    if form.validate_on_submit():
+        current_product.name = form.name.data
+        current_product.description = form.description.data
+        if form.img.data:
+            if current_product.img:
+                img_path = os.path.join(UPLOAD_FOLDER, current_product.img)
+                if os.path.exists(img_path):
+                    os.remove(img_path)
+            filename = secure_filename(form.img.data.filename)
+            upload_path = os.path.join(UPLOAD_FOLDER, filename)
+            form.img.data.save(upload_path)
+            current_product.img = filename
 
         db.session.commit()
         return redirect(url_for("admin_dashboard"))
-
-    return render_template("edit_product.html", product=product, form=form)
+    
+    return render_template("edit_product.html", product=current_product, form=form)
 
 @app.route("/admin/delete/<int:product_id>", methods=["POST"])
 @login_required
 def delete_product(product_id):
-    product = Product.query.get(product_id)
-    if product:
-        if product.img:
-            img_path = os.path.join(UPLOAD_FOLDER, product.img)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-        db.session.delete(product)
-        db.session.commit()
-        return redirect(url_for("admin_dashboard"))
-    flash('Product not found', 'error')
+    product = Product.query.get_or_404(product_id)
+    if product.img:
+        img_path = os.path.join(UPLOAD_FOLDER, product.img)
+        if os.path.exists(img_path):
+            os.remove(img_path)
+    db.session.delete(product)
+    db.session.commit()
     return redirect(url_for("admin_dashboard"))
 
 
@@ -187,56 +165,46 @@ def add_carousel_item():
 @app.route("/admin/carousel/edit/<int:item_id>", methods=["GET", "POST"])
 @login_required
 def edit_carousel(item_id):
-    form = CarouselItemForm()
-    carousel_items = CarouselItem.query.all()
-    carousel_item = next((c for c in carousel_items if c.id == item_id), None)
-    if not carousel_item:
-        abort(404)
+    current_carousel_item = CarouselItem.query.get_or_404(item_id)
+    form = CarouselItemForm(obj=current_carousel_item)
     if form.validate_on_submit():
-        current_carousel_item = CarouselItem.query.get_or_404(item_id)
-        print(current_carousel_item)
-        if current_carousel_item:
-            print("carousel")
-            current_carousel_item.title = form.title.data
-            current_carousel_item.description = form.description.data
-            current_carousel_item.text_position = form.text_position.data
-            current_carousel_item.button_text = form.button_text.data
-            current_carousel_item.button_link = form.button_link.data
-            if form.img.data:
-                if current_carousel_item.img:
-                    img_path = os.path.join(UPLOAD_FOLDER, current_carousel_item.img)
-                    if os.path.exists(img_path):
-                        os.remove(img_path)
-                filename = secure_filename(form.img.data.filename)
-                upload_path = os.path.join(UPLOAD_FOLDER, filename)
-                form.img.data.save(upload_path)
-                current_carousel_item.img = filename
+        current_carousel_item.title = form.title.data
+        current_carousel_item.description = form.description.data
+        current_carousel_item.text_position = form.text_position.data
+        current_carousel_item.button_text = form.button_text.data
+        current_carousel_item.button_link = form.button_link.data
+        if form.img.data:
+            if current_carousel_item.img:
+                img_path = os.path.join(UPLOAD_FOLDER, current_carousel_item.img)
+                if os.path.exists(img_path):
+                    os.remove(img_path)
+            filename = secure_filename(form.img.data.filename)
+            upload_path = os.path.join(UPLOAD_FOLDER, filename)
+            form.img.data.save(upload_path)
+            current_carousel_item.img = filename
 
         db.session.commit()
         return redirect(url_for("admin_carousel"))
 
-    return render_template("edit_carousel.html", carousel_item=carousel_item, form=form)
+    return render_template("edit_carousel.html", carousel_item=current_carousel_item, form=form)
 
 
 @app.route("/admin/carousel/delete/<int:item_id>", methods=["POST"])
 @login_required
 def delete_carousel_item(item_id):
-    carousel_item = CarouselItem.query.get(item_id)
-    if carousel_item:
-        if carousel_item.img:
-            img_path = os.path.join(UPLOAD_FOLDER, carousel_item.img)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-        db.session.delete(carousel_item)
-        db.session.commit()
-        return redirect(url_for("admin_carousel"))
-    flash('Product not found', 'error')
+    carousel_item = CarouselItem.query.get_or_404(item_id)
+    if carousel_item.img:
+        img_path = os.path.join(UPLOAD_FOLDER, carousel_item.img)
+        if os.path.exists(img_path):
+            os.remove(img_path)
+    db.session.delete(carousel_item)
+    db.session.commit()
     return redirect(url_for("admin_carousel"))
 
 
 @app.route("/logout")
 def logout():
-    session.clear()
+    logout_user()
     return redirect(url_for("admin"))
 
 # -------------------- Run -------------------- #

@@ -1,16 +1,16 @@
-{% macro render_field(field, value = None, is_image = False) %}
+{% macro render_field(field, is_image = False) %}
   <div class="mb-3">
     {{ field.label(class="form-label") }}
-    {% if is_image and value %}
+    {% if is_image and product.img%}
       <div class="mb-2">
-        <img src="{{ url_for('static', filename='img/' ~ value) }}" 
+        <img src="{{ url_for('static', filename='img/' ~ product.img) }}" 
              alt="Current image" 
              class="img-thumbnail" 
              style="max-width: 200px;">
       </div>
     {% endif %}
 
-    {{ field(class="form-control", value=value  , **kwargs)|safe }}
+    {{ field(class="form-control", **kwargs)|safe }}
 
     {% if field.errors %}
       <div class="text-danger mt-1">
@@ -25,9 +25,10 @@
 {% extends "base.html" %}
 {% block content %}
 <form method="POST" enctype="multipart/form-data">
-    {{ render_field(form.name, product.name) }}
-    {{ render_field(form.description, product.description) }}
-    {{ render_field(form.img, product.img, is_image=true) }}
+    {{ form.csrf_token }}
+    {{ render_field(form.name) }}
+    {{ render_field(form.description) }}
+    {{ render_field(form.img, is_image=true) }}
     <button type="submit" class="btn btn-success">Зберегти</button>
     <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Назад</a>
 </form>
