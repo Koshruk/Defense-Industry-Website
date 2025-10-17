@@ -1,12 +1,13 @@
 {% macro render_field(field, is_image = False) %}
   <div class="mb-3">
     {{ field.label(class="form-label") }}
-    {% if is_image and carousel_item.img%}
+    {% if is_image %}
       <div class="mb-2">
         <img src="{{ url_for('static', filename='img/' ~ carousel_item.img) }}" 
              alt="Current image" 
              class="img-thumbnail" 
              style="max-width: 200px;">
+             {% if not carousel_item or not carousel_item.img %}hidden{% endif %}
       </div>
     {% endif %}
 
@@ -37,5 +38,26 @@
     <button type="submit" class="btn btn-success">Зберегти</button>
     <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Назад</a>
   </form>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const fileInput = document.querySelector('input[type="file"]');
+      const preview = document.querySelector(".img-thumbnail");
+    
+      if (fileInput && preview) {
+        fileInput.addEventListener("change", function(event) {
+          const file = event.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              preview.src = e.target.result;
+              preview.style.display = "block";
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+      }
+    });
+  </script>
 </div>
 {% endblock %}
