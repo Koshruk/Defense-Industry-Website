@@ -72,7 +72,8 @@ def admin():
             login_user(admin_user)
             return redirect(url_for("admin_dashboard"))
         else:
-            print("fuck")
+            flash("Неправильний email та/або пароль", "danger")
+            
     return render_template("admin.html", form=form)
 
 @app.route("/admin/dashboard")
