@@ -1,3 +1,22 @@
+{% macro render_pagination(pagination, endpoint) %}
+  <div class="page-items">
+    {{ pagination.first }} - {{ pagination.last }} of {{ pagination.total }}
+  </div>
+  <div class=pagination>
+    {% for page in pagination.iter_pages() %}
+      {% if page %}
+        {% if page != pagination.page %}
+          <a href="{{ url_for(endpoint, page=page) }}">{{ page }}</a>
+        {% else %}
+          <strong>{{ page }}</strong>
+        {% endif %}
+      {% else %}
+        <span class=ellipsis>…</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endmacro %}
+
 {% extends "base.html" %}
 {% block content %}
 <div class="container-fluid">
@@ -12,8 +31,13 @@
         <a href="{{ url_for('add_carousel_item') }}" class="btn btn-success">Додати слайд</a>
       </div>
 
+      <form method="GET" class="mb-3 d-flex">
+        <input type="text" autocomplete="off" name="q" class="form-control me-2" placeholder="Пошук айтемів..." value="{{ request.args.get('q', '') }}">
+        <button class="btn btn-primary">Пошук</button>
+      </form>
+
       <div class="list-group">
-        {% for item in carousel_items %}
+        {% for item in page %}
         <div class="list-group-item d-flex justify-content-between align-items-center">
           <!-- Сама посилання на редагування -->
           <a href="{{ url_for('edit_carousel', item_id=item.id) }}" class="flex-grow-1 text-decoration-none text-dark">
@@ -36,6 +60,7 @@
         <div class="alert alert-info">Слайдів поки немає.</div>
         {% endfor %}
       </div>
+      {{ render_pagination(page, 'admin_carousel') }}
     </div>
   </div>
 </div>

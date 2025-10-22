@@ -1,3 +1,22 @@
+{% macro render_pagination(pagination, endpoint) %}
+  <div class="page-items">
+    {{ pagination.first }} - {{ pagination.last }} of {{ pagination.total }}
+  </div>
+  <div class=pagination>
+    {% for page in pagination.iter_pages() %}
+      {% if page %}
+        {% if page != pagination.page %}
+          <a href="{{ url_for(endpoint, page=page) }}">{{ page }}</a>
+        {% else %}
+          <strong>{{ page }}</strong>
+        {% endif %}
+      {% else %}
+        <span class=ellipsis>…</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endmacro %}
+
 {% extends "base.html" %}
 {% block content %}
 <div class="container-fluid">
@@ -9,7 +28,7 @@
     <div class="col-md-9 col-lg-10 p-4">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="mb-4">Список адміністраторів</h3>
-        {% if current_user.is_authenticated and current_user.role == "superadmin" %}
+        {% if current_user.is_authenticated and current_user.has_role("superadmin")%}
           <a href="{{ url_for('add_admin') }}" class="btn btn-success">
             Додати профіль адміністратора
           </a>
@@ -18,42 +37,40 @@
 
       <!-- Пошук -->
       <form method="GET" class="mb-3 d-flex">
-        <input type="text" name="q" class="form-control me-2" placeholder="Пошук адміністраторів..." value="{{ request.args.get('q', '') }}">
+        <input type="text" autocomplete="off" name="q" class="form-control me-2" placeholder="Пошук адміністраторів..." value="{{ request.args.get('q', '') }}">
         <button class="btn btn-primary">Пошук</button>
       </form>
 
       <!-- Таблиця адміністраторів -->
-      <table class="table table-hover">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Ім'я</th>
-            <th>Пошта</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for a in admins %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ a.name }}</td>
-            <td>{{ a.email }}</td>
-            {% if current_user.is_authenticated and current_user.role == "superadmin" %}
-            <td>
-              <form action="{{ url_for('delete_admin', admin_id=a.id) }}" method="POST" class="ms-3">
-                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Ви впевнені, що хочете видалити адміністратора?');">
-                  Видалити
-                </button>
-              </form>
-            </td>
-            {% endif %}
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="4" class="text-center">Адміністратори не знайдені</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="list-group">
+        {% for admin in page %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+          <a href="{{ url_for('edit_admin', admin_id=admin.id) }}" class="flex-grow-1 text-decoration-none text-dark">
+            <div class="d-flex w-100 justify-content-between">
+              <h5 class="mb-1">{{ admin.name }}</h5>
+              <small>ID: {{ admin.id }}</small>
+            </div>
+            <p class="mb-1 text-truncate">{{ admin.email }}</p>
+          </a>
+          <!-- Кнопка видалення -->
+          {% if current_user.is_authenticated and current_user.has_role("superadmin")%}
+            <form action="{{ url_for('delete_admin', admin_id=admin.id) }}" method="POST" class="ms-3">
+              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Ви впевнені, що хочете видалити адміністратора?');">
+                Видалити
+              </button>
+            </form>
+          <form action="{{ url_for('edit_admin', admin_id=admin.id) }}" method="POST" class="ms-3">
+            <button type="submit" class="btn btn-danger btn-sm">
+              Редагувати
+            </button>
+          </form>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">Продукти не знайдені.</div>
+        {% endfor %}
+      </div>
+      {{render_pagination(page, 'admin_list')}}
     </div>
   </div>
 </div>

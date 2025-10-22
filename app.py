@@ -5,11 +5,12 @@ from flask_migrate import Migrate
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from sqlalchemy import or_
 from flask_bcrypt import Bcrypt
+from flask_rbac import RBAC
 import os
 import uuid
 
-from models import db, Product, Admin, CarouselItem
-from forms import ProductForm, AdminForm, CarouselItemForm
+from models import db, Product, User, CarouselItem, Role
+from forms import ProductForm, UserForm, CarouselItemForm
 
 app = Flask(__name__)
 app.secret_key = "SayGex"
@@ -20,6 +21,7 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///products_database.db"
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
+app.config['RBAC_USE_WHITE'] = True
 
 db.init_app(app)
 bcrypt = Bcrypt(app)
@@ -29,46 +31,43 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(Admin, int(user_id))
+    return db.session.get(User, int(user_id))
+
+
+rbac = RBAC(app)
+rbac.set_role_model(Role)
+rbac.set_user_model(User)
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
-
-def superadmin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != "superadmin":
-            abort(403)
-        return f(*args, **kwargs)
-    return decorated_function
-
 # -------------------- Routes -------------------- #
 
 @app.route("/")
+@rbac.allow(["anonymous"], methods=["GET"])
 def index():
     carousel_items = CarouselItem.query.all()
     return render_template("index.html", carousel_items=carousel_items)
 
 @app.route("/products")
+@rbac.allow(["anonymous"], methods=["GET"])
 def products_page():
     products = Product.query.all()
     return render_template("products.html", products=products)
 
 @app.route("/products/<int:product_id>")
+@rbac.allow(["anonymous"], methods=["GET"])
 def product_detail(product_id):
-    product = Product.query.get(product_id)
-    if not product:
-        abort(404)
+    product = Product.query.get_or_404(product_id)
     return render_template("product_detail.html", product=product)
 
 @app.route("/admin", methods=["GET", "POST"])
+@rbac.allow(["anonymous", "admin", "superadmin"], methods=["GET", "POST"])
 def admin():
-    form = AdminForm()
+    form = UserForm()
     if form.validate_on_submit():
-        admin_user = Admin.query.filter_by(email = form.email.data).first()
-        if admin_user and bcrypt.check_password_hash(admin_user.password, form.password.data):
+        admin_user = User.query.filter_by(email = form.email.data).first()
+        if admin_user and admin_user.check_password(form.password.data):
             login_user(admin_user)
             return redirect(url_for("admin_dashboard"))
         else:
@@ -78,36 +77,50 @@ def admin():
 
 @app.route("/admin/dashboard")
 @login_required
+@rbac.allow(["admin"], methods=["GET"])
 def admin_dashboard():
     q = request.args.get("q", "").lower()
-    filtered_products = Product.query.filter(or_(Product.name.ilike(f"%{q}%")), Product.description.ilike(f"%{q}%")).all()
-    return render_template("admin_dashboard.html", products=filtered_products)
+    page = db.paginate(Product.query.filter(Product.search_tags.ilike(f"%{q}%")), per_page=5)
+    return render_template("admin_dashboard.html", page=page)
 
 @app.route("/admin/admins")
 @login_required
+@rbac.allow(["admin"], methods=["GET"])
 def admin_list():
     q = request.args.get("q", "").lower()
-    filtered_admins = Admin.query.filter(or_(Admin.name.ilike(f"%{q}%"), Admin.email.ilike(f"%{q}%"))).all()
-    return render_template("admin_dashboard_admins.html", admins=filtered_admins)
+    page = db.paginate(User.query.filter(User.search_tags.ilike(f"%{q}%")), per_page=5)
+    return render_template("admin_dashboard_admins.html", page=page)
 
 @app.route("/admin/add_admin", methods=["GET", "POST"])
-@superadmin_required
+@login_required
+@rbac.allow(["superadmin"], methods=["GET", "POST"])
 def add_admin():
-    form = AdminForm()
+    form = UserForm()
     if form.validate_on_submit():
-        hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-        admin = Admin(name = form.name.data,
-                          email = form.email.data,
-                          password = hashed_password)
+        admin = User()
+        form.populate_obj(admin)
         db.session.add(admin)
         db.session.commit()
         return redirect(url_for("admin_list"))
     return render_template("add_admin.html", form=form)
 
-@app.route("/admin/delete/<int:admin_id>", methods=["POST"])
-@superadmin_required
+@app.route("/admin/admins/edit/<int:admin_id>", methods=["GET", "POST"])
+@login_required
+@rbac.allow(["superadmin"], methods=["GET", "POST"])
+def edit_admin(admin_id):
+    current_admin = User.query.get_or_404(admin_id)
+    form = UserForm()
+    if form.validate_on_submit():
+        form.populate_obj(current_admin)
+        db.session.commit()
+        return redirect(url_for("admin_list"))
+    return render_template("edit_admin.html", form=form)
+
+@app.route("/admin/admins/delete/<int:admin_id>", methods=["POST"])
+@login_required
+@rbac.allow(["superadmin"], methods=["POST"])
 def delete_admin(admin_id):
-    admin = Admin.query.get_or_404(admin_id)
+    admin = User.query.get_or_404(admin_id)
     if admin.id == current_user.id:
         flash("You cannot delete your own account", "danger")
         return redirect(url_for("admin_list"))
@@ -117,17 +130,17 @@ def delete_admin(admin_id):
 
 @app.route("/admin/add_product", methods=["GET", "POST"])
 @login_required
+@rbac.allow(["admin"], methods=["GET", "POST"])
 def add_product():
     form = ProductForm()
     if form.validate_on_submit():
-        product = Product(name = form.name.data,
-                          description = form.description.data,
-                          img = form.img.data)
         if form.img.data:
             filename = f"{uuid.uuid4().hex}_{secure_filename(form.img.data.filename)}"
             upload_path = os.path.join(UPLOAD_FOLDER, filename)
             form.img.data.save(upload_path)
-            product.img = filename
+            form.img.data = filename
+        product = Product()
+        form.populate_obj(product)
         db.session.add(product)
         db.session.commit()
         return redirect(url_for("admin_dashboard"))
@@ -136,13 +149,12 @@ def add_product():
 
 @app.route("/admin/edit/<int:product_id>", methods=["GET", "POST"])
 @login_required
+@rbac.allow(["admin"], methods=["GET", "POST"])
 def edit_product(product_id):
     current_product = Product.query.get_or_404(product_id)
     form = ProductForm(obj=current_product)
 
     if form.validate_on_submit():
-        current_product.name = form.name.data
-        current_product.description = form.description.data
         if form.img.data:
             if current_product.img:
                 img_path = os.path.join(UPLOAD_FOLDER, current_product.img)
@@ -151,8 +163,8 @@ def edit_product(product_id):
             filename = secure_filename(form.img.data.filename)
             upload_path = os.path.join(UPLOAD_FOLDER, filename)
             form.img.data.save(upload_path)
-            current_product.img = filename
-
+            form.img.data = filename
+        form.populate_obj(current_product)
         db.session.commit()
         return redirect(url_for("admin_dashboard"))
     
@@ -160,6 +172,7 @@ def edit_product(product_id):
 
 @app.route("/admin/delete/<int:product_id>", methods=["POST"])
 @login_required
+@rbac.allow(["admin"], methods=["POST"])
 def delete_product(product_id):
     product = Product.query.get_or_404(product_id)
     if product.img:
@@ -174,26 +187,25 @@ def delete_product(product_id):
 
 @app.route("/admin/carousel", methods=["GET", "POST"])
 @login_required
+@rbac.allow(["admin"], methods=["GET", "POST"])
 def admin_carousel():
-    carousel_items = CarouselItem.query.all()
-    return render_template("admin_carousel.html", carousel_items=carousel_items)
+    q = request.args.get("q", "").lower()
+    page = db.paginate(CarouselItem.query.filter(CarouselItem.search_tags.ilike(f"%{q}%")), per_page=5)
+    return render_template("admin_carousel.html", page=page)
 
 @app.route("/admin/add_carousel_item", methods=["GET", "POST"])
 @login_required
+@rbac.allow(["admin"], methods=["GET", "POST"])
 def add_carousel_item():
     form = CarouselItemForm()
     if form.validate_on_submit():
-        carousel_item = CarouselItem(title = form.title.data,
-                          description = form.description.data,
-                          text_position = form.text_position.data,
-                          button_text = form.button_text.data,
-                          button_link = form.button_link.data,
-                          img = form.img.data)
         if form.img.data:
             filename = f"{uuid.uuid4().hex}_{secure_filename(form.img.data.filename)}"
             upload_path = os.path.join(UPLOAD_FOLDER, filename)
             form.img.data.save(upload_path)
-            carousel_item.img = filename
+            form.img.data = filename
+        carousel_item = CarouselItem()
+        form.populate_obj(carousel_item)
         db.session.add(carousel_item)
         db.session.commit()
         return redirect(url_for("admin_carousel"))
@@ -203,15 +215,12 @@ def add_carousel_item():
 
 @app.route("/admin/carousel/edit/<int:item_id>", methods=["GET", "POST"])
 @login_required
+@rbac.allow(["admin"], methods=["GET", "POST"])
 def edit_carousel(item_id):
     current_carousel_item = CarouselItem.query.get_or_404(item_id)
     form = CarouselItemForm(obj=current_carousel_item)
     if form.validate_on_submit():
-        current_carousel_item.title = form.title.data
-        current_carousel_item.description = form.description.data
-        current_carousel_item.text_position = form.text_position.data
-        current_carousel_item.button_text = form.button_text.data
-        current_carousel_item.button_link = form.button_link.data
+        
         if form.img.data:
             if current_carousel_item.img:
                 img_path = os.path.join(UPLOAD_FOLDER, current_carousel_item.img)
@@ -220,8 +229,8 @@ def edit_carousel(item_id):
             filename = secure_filename(form.img.data.filename)
             upload_path = os.path.join(UPLOAD_FOLDER, filename)
             form.img.data.save(upload_path)
-            current_carousel_item.img = filename
-
+            form.img.data = filename
+        form.populate_obj(current_carousel_item)
         db.session.commit()
         return redirect(url_for("admin_carousel"))
 
@@ -230,6 +239,7 @@ def edit_carousel(item_id):
 
 @app.route("/admin/carousel/delete/<int:item_id>", methods=["POST"])
 @login_required
+@rbac.allow(["admin"], methods=["POST"])
 def delete_carousel_item(item_id):
     carousel_item = CarouselItem.query.get_or_404(item_id)
     if carousel_item.img:
@@ -242,6 +252,8 @@ def delete_carousel_item(item_id):
 
 
 @app.route("/logout")
+@login_required
+@rbac.allow(["admin"], methods=["GET"])
 def logout():
     logout_user()
     return redirect(url_for("admin"))

@@ -1,3 +1,22 @@
+{% macro render_pagination(pagination, endpoint) %}
+  <div class="page-items">
+    {{ pagination.first }} - {{ pagination.last }} of {{ pagination.total }}
+  </div>
+  <div class=pagination>
+    {% for page in pagination.iter_pages() %}
+      {% if page %}
+        {% if page != pagination.page %}
+          <a href="{{ url_for(endpoint, page=page) }}">{{ page }}</a>
+        {% else %}
+          <strong>{{ page }}</strong>
+        {% endif %}
+      {% else %}
+        <span class=ellipsis>…</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endmacro %}
+
 {% extends "base.html" %}
 {% block content %}
 <div class="container-fluid">
@@ -14,13 +33,13 @@
 
       <!-- Пошук -->
       <form method="GET" class="mb-3 d-flex">
-        <input type="text" name="q" class="form-control me-2" placeholder="Пошук продуктів..." value="{{ request.args.get('q', '') }}">
+        <input type="text" autocomplete="off" name="q" class="form-control me-2" placeholder="Пошук продуктів..." value="{{ request.args.get('q', '') }}">
         <button class="btn btn-primary">Пошук</button>
       </form>
 
       <!-- Список продуктів -->
       <div class="list-group">
-        {% for product in products %}
+        {% for product in page %}
         <div class="list-group-item d-flex justify-content-between align-items-center">
           <a href="{{ url_for('edit_product', product_id=product.id) }}" class="flex-grow-1 text-decoration-none text-dark">
             <div class="d-flex w-100 justify-content-between">
@@ -40,6 +59,7 @@
         <div class="alert alert-info">Продукти не знайдені.</div>
         {% endfor %}
       </div>
+      {{render_pagination(page, 'admin_dashboard')}}
     </div>
   </div>
 </div>

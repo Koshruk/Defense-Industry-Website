@@ -14,7 +14,7 @@ class ProductForm(FlaskForm):
     description = StringField('Опис', [validators.Length(min=4, max=100), validators.DataRequired()])
     img = FileField('Картинка', validators=[FileRequired(), FileAllowed(images, 'Images only!')])
 
-class AdminForm(FlaskForm):
+class UserForm(FlaskForm):
     email = StringField('Email', [validators.Length(min=4, max=80), validators.DataRequired()])
     password = PasswordField('Пароль', [validators.Length(min=4, max=80), validators.DataRequired()])
     name = StringField("Ім'я", [validators.Length(max=20)])
