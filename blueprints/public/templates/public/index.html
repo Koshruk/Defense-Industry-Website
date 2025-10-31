@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="mainCarousel" class="carousel slide mb-5" data-bs-ride="carousel"  data-bs-interval="3000">
+  <!-- Динамічні індикатори -->
+  <div class="carousel-indicators">
+    {% for item in carousel_items %}
+    <button type="button"
+            data-bs-target="#mainCarousel"
+            data-bs-slide-to="{{ loop.index0 }}"
+            class="{% if loop.first %}active{% endif %}"
+            aria-current="{% if loop.first %}true{% endif %}"
+            aria-label="Slide {{ loop.index }}">
+    </button>
+    {% endfor %}
+  </div>
+  
+  <!-- Слайди -->
+  <div class="carousel-inner">
+    {% for item in carousel_items %}
+    <div class="carousel-item {% if loop.first %}active{% endif %}">
+      <img src="{{ url_for('static', filename='img/' + (item.img or 'placeholder.jpg')) }}"
+           class="d-block w-100 carousel-img"
+           alt="{{ item.title or 'Слайд' }}">
+      
+      {% if item.text_position != 'none' %}
+      <div class="carousel-caption d-none d-md-block
+                  {% if item.text_position == 'left' %}text-start
+                  {% elif item.text_position == 'right' %}text-end
+                  {% else %}text-center{% endif %}">
+        <h1>{{ item.title or '' }}</h1>
+        <p>{{ item.desc or '' }}</p>
+        {% if item.button_text %}
+        <p><a class="btn btn-lg btn-primary" href="{{ item.button_link or '#' }}">{{ item.button_text }}</a></p>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Навігація -->
+  <button class="carousel-control-prev" type="button" data-bs-target="#mainCarousel" data-bs-slide="prev">
+    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+    <span class="visually-hidden">Попередній</span>
+  </button>
+  <button class="carousel-control-next" type="button" data-bs-target="#mainCarousel" data-bs-slide="next">
+    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+    <span class="visually-hidden">Наступний</span>
+  </button>
+</div>
+
+
+<!-- Основний контент -->
+<div class="container mb-5">
+  <h2 class="text-center mb-4">Вітаємо у prod.nexus</h2>
+  <p class="lead text-center">
+    Інноваційні рішення для оборони та промисловості. Перегляньте нашу продукцію, щоб дізнатись більше.
+  </p>
+
+  <!-- Три колонки з фічами -->
+ <div class="row text-center mt-5">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm text-center" style="border-radius:15px; overflow:hidden;">
+            <div class="p-3">
+                <img src="{{ url_for('static', filename='img/innovation.jpg') }}" 
+                     alt="Innovation" 
+                     class="img-fluid mb-3" 
+                     style="height:150px; width:100%; object-fit:cover; border-radius:15px;">
+                <h5 class="card-title">Інновації</h5>
+                <p class="card-text">Розробка передових рішень для сучасної промисловості та оборони.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm text-center" style="border-radius:15px; overflow:hidden;">
+            <div class="p-3">
+                <img src="{{ url_for('static', filename='img/quality.jpg') }}" 
+                     alt="Quality" 
+                     class="img-fluid mb-3" 
+                     style="height:150px; width:100%; object-fit:cover; border-radius:15px;">
+                <h5 class="card-title">Якість</h5>
+                <p class="card-text">Високі стандарти виробництва та надійність у кожному компоненті.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm text-center" style="border-radius:15px; overflow:hidden;">
+            <div class="p-3">
+                <img src="{{ url_for('static', filename='img/security.jpeg') }}" 
+                     alt="Security" 
+                     class="img-fluid mb-3" 
+                     style="height:150px; width:100%; object-fit:cover; border-radius:15px;">
+                <h5 class="card-title">Безпека</h5>
+                <p class="card-text">Захист та безпека у всіх аспектах використання продукції.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+  <!-- Додатковий текст -->
+  <div class="mt-5">
+    <h3 class="mb-3">Про нас</h3>
+    <p>
+      Ми спеціалізуємось на розробці та виробництві робототехніки і оборонного обладнання для військових та промислових потреб.
+      Наша команда інженерів та дослідників створює продукти, що відповідають найвищим стандартам якості та безпеки.
+    </p>
+    <p>
+      Від FPV-дронів до гуманоїдних роботів — ми пропонуємо інноваційні рішення для сучасних викликів. Кожен продукт проходить строгий контроль якості та тестування у реальних умовах.
+    </p>
+    <p>
+      Долучайтесь до нашої спільноти та дізнавайтесь про останні новини, технології та проекти, що змінюють майбутнє.
+    </p>
+  </div>
+
+  <!-- Кнопка CTA -->
+  <div class="text-center mt-4">
+    <a href="{{ url_for('products_page') }}" class="btn btn-lg btn-success">Переглянути всю продукцію</a>
+  </div>
+</div>
+
+
+</div>
+{% endblock %}

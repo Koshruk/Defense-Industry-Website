@@ -4,7 +4,7 @@ from sqlalchemy import CheckConstraint, event
 from flask_login import LoginManager, UserMixin
 from flask_bcrypt import Bcrypt
 from flask_rbac import RoleMixin
-db = SQLAlchemy()
+from extentions import db
 bcrypt = Bcrypt()
 
 class Product(db.Model):
