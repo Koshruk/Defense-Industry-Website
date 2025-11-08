@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, abort, session, flash
+from flask import Flask, render_template, request, redirect, url_for, abort, session, flash, jsonify
 from werkzeug.utils import secure_filename
 from functools import wraps
 from flask_migrate import Migrate
@@ -48,6 +48,21 @@ def allowed_file(filename):
 def index():
     carousel_items = CarouselItem.query.all()
     return render_template("index.html", carousel_items=carousel_items)
+
+@app.route("/role")
+@rbac.allow(["anonymous", 'admin'], methods=["GET"])
+def role():
+    if not current_user.is_authenticated:
+        return jsonify({
+            "authenticated": False,
+            "roles": getattr(current_user, "roles", None)
+        })
+    else:
+        return jsonify({
+            "authenticated": True,
+            "id": current_user.id,
+            "roles": [r.name for r in current_user.roles]
+        })
 
 @app.route("/products")
 @rbac.allow(["anonymous"], methods=["GET"])
