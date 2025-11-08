@@ -62,7 +62,7 @@ def product_detail(product_id):
     return render_template("product_detail.html", product=product)
 
 @app.route("/admin", methods=["GET", "POST"])
-@rbac.allow(["anonymous", "admin", "superadmin"], methods=["GET", "POST"])
+@rbac.allow(["anonymous", "admin"], methods=["GET", "POST"])
 def admin():
     form = UserForm()
     if form.validate_on_submit():
