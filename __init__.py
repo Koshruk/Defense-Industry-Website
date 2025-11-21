@@ -1,7 +1,7 @@
 from flask import Flask
 from extentions import db, bcrypt, migrate, login_manager, rbac
 import os
-from flask_login import login_required, logout_user
+from flask_login import login_required, logout_user, login_user
 from flask_login import current_user
 
 
@@ -37,8 +37,6 @@ def create_app():
     rbac.set_role_model(Role)
     rbac.set_user_model(User)
     rbac._fetch_user = lambda: current_user
-
-    rbac.allow(['anonymous'], ['GET'], '/')
 
     from blueprints.public.public import public_bp
     app.register_blueprint(public_bp)
